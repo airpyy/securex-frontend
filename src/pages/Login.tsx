@@ -1,5 +1,4 @@
-
-import React, {
+import {
   useState,
   type ChangeEvent,
   type FormEvent,
@@ -23,7 +22,10 @@ import { FaGithub } from "react-icons/fa";
 
 import type LoginData from "../models/LoginData";
 
-import { loginUser } from "../services/AuthServices";
+import {
+  loginWithGoogle,
+  loginWithGithub,
+} from "../services/AuthServices";
 
 import { NavLink, useNavigate } from "react-router";
 
@@ -34,7 +36,6 @@ function Login() {
   });
 
   const [loading, setLoading] = useState<boolean>(false);
-
   const [error, setError] = useState<string | null>(null);
 
   const navigate = useNavigate();
@@ -102,7 +103,6 @@ function Login() {
 
         {/* Header */}
         <div className="mb-7 text-center">
-
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-[#1B2A4A] text-xl text-white shadow-sm">
             🛡️
           </div>
@@ -133,13 +133,11 @@ function Login() {
 
             {/* Email */}
             <div className="mb-5">
-
               <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
                 Email
               </label>
 
               <div className="relative">
-
                 <Mail
                   size={17}
                   className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
@@ -166,15 +164,12 @@ function Login() {
                     dark:placeholder:text-slate-600
                   "
                 />
-
               </div>
             </div>
 
             {/* Password */}
             <div className="mb-4">
-
               <div className="mb-2 flex items-center justify-between">
-
                 <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
                   Password
                 </label>
@@ -185,11 +180,9 @@ function Login() {
                 >
                   Forgot password?
                 </a>
-
               </div>
 
               <div className="relative">
-
                 <Lock
                   size={17}
                   className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
@@ -216,7 +209,6 @@ function Login() {
                     dark:placeholder:text-slate-600
                   "
                 />
-
               </div>
             </div>
 
@@ -244,12 +236,10 @@ function Login() {
                 "Sign in"
               )}
             </Button>
-
           </form>
 
           {/* Divider */}
           <div className="my-6 flex items-center gap-3">
-
             <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
 
             <span className="text-xs font-medium text-slate-400">
@@ -257,66 +247,54 @@ function Login() {
             </span>
 
             <div className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
-
           </div>
 
           {/* Google */}
-          <NavLink
-            to={`${import.meta.env.VITE_BASE_URL||"http://localhost:8082"}/oauth2/authorization/google`}
-            className="block"
+          <Button
+            type="button"
+            variant="outline"
+            onClick={loginWithGoogle}
+            className="
+              mb-3 w-full rounded-lg py-6
+              border-slate-300
+              text-sm font-medium
+              hover:bg-slate-50
+              dark:border-slate-700
+              dark:hover:bg-slate-800
+            "
           >
-            <Button
-              type="button"
-              variant="outline"
-              className="
-                mb-3 w-full rounded-lg py-6
-                border-slate-300
-                text-sm font-medium
-                hover:bg-slate-50
-                dark:border-slate-700
-                dark:hover:bg-slate-800
-              "
-            >
-              <span className="mr-2 text-base font-bold text-red-500">
-                G
-              </span>
+            <span className="mr-2 text-base font-bold text-red-500">
+              G
+            </span>
 
-              Continue with Google
-            </Button>
-          </NavLink>
+            Continue with Google
+          </Button>
 
           {/* GitHub */}
-          <NavLink
-            to={`${import.meta.env.VITE_BASE_URL
-              ||"http://localhost:8082"}/oauth2/authorization/github`}
-            className="block"
+          <Button
+            type="button"
+            variant="outline"
+            onClick={loginWithGithub}
+            className="
+              w-full rounded-lg py-6
+              border-slate-300
+              text-sm font-medium
+              hover:bg-slate-50
+              dark:border-slate-700
+              dark:hover:bg-slate-800
+            "
           >
-            <Button
-              type="button"
-              variant="outline"
-              className="
-                w-full rounded-lg py-6
-                border-slate-300
-                text-sm font-medium
-                hover:bg-slate-50
-                dark:border-slate-700
-                dark:hover:bg-slate-800
-              "
-            >
-              <FaGithub
-                size={17}
-                className="mr-2"
-              />
+            <FaGithub
+              size={17}
+              className="mr-2"
+            />
 
-              Continue with GitHub
-            </Button>
-          </NavLink>
-
+            Continue with GitHub
+          </Button>
         </div>
 
         {/* Signup */}
         <p className="mt-6 text-center text-sm text-slate-500 dark:text-slate-400">
-
           Don't have an account?{" "}
 
           <NavLink
@@ -325,7 +303,6 @@ function Login() {
           >
             Create an account
           </NavLink>
-
         </p>
 
       </div>
