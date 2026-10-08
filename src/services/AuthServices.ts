@@ -3,41 +3,45 @@ import ApiClient from "../config/ApiClient";
 import type LoginData from "../models/LoginData";
 import type LoginResponseData from "../models/LoginResponseData";
 
-// register user
+// Register user
 export const registerUser = async (signupData: SignupData) => {
   const response = await ApiClient.post("auth/register", signupData);
   return response.data;
 };
 
-// login user
+// Login user
 export const loginUser = async (loginData: LoginData) => {
   const response = await ApiClient.post<LoginResponseData>(
     "auth/login",
     loginData
   );
+
   return response.data;
 };
 
-// logout user
+// Logout user
 export const logoutUser = async () => {
   const response = await ApiClient.post("auth/logout");
   return response.data;
 };
 
-// refresh token
+// Refresh access token
 export const refreshToken = async () => {
-  const response = await ApiClient.post<LoginResponseData>("auth/refresh");
+  const response = await ApiClient.post<LoginResponseData>(
+    "auth/refresh"
+  );
+
   return response.data;
 };
 
-// Google login
+// Google OAuth login
 export const loginWithGoogle = () => {
   window.location.href =
-    "http://localhost:8082/oauth2/authorization/google";
+    `${import.meta.env.VITE_API_URL}/oauth2/authorization/google`;
 };
 
-// GitHub login
+// GitHub OAuth login
 export const loginWithGithub = () => {
   window.location.href =
-    "http://localhost:8082/oauth2/authorization/github";
+    `${import.meta.env.VITE_API_URL}/oauth2/authorization/github`;
 };
