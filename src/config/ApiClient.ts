@@ -1,4 +1,8 @@
-import axios from "axios";
+import axios, {
+  type AxiosError,
+  type InternalAxiosRequestConfig,
+} from "axios";
+
 import useAuth from "../auth/store";
 import { refreshToken } from "../services/AuthServices";
 
@@ -11,87 +15,249 @@ const apiClient = axios.create({
   timeout: 10000,
 });
 
-apiClient.interceptors.request.use((config) => {
-  const accessToken = useAuth.getState().accessToken;
 
-  if (accessToken) {
-    config.headers.Authorization = `Bearer ${accessToken}`;
+// =========================================================
+// REQUEST INTERCEPTOR
+// =========================================================
+
+apiClient.interceptors.request.use(
+  (config: InternalAxiosRequestConfig) => {
+
+    const accessToken =
+      useAuth.getState().accessToken;
+
+    if (accessToken) {
+      config.headers.Authorization =
+        `Bearer ${accessToken}`;
+    }
+
+    return config;
+  },
+
+  (error) => {
+    return Promise.reject(error);
   }
+);
 
-  return config;
-});
+
+// =========================================================
+// TOKEN REFRESH STATE
+// =========================================================
 
 let isRefreshing = false;
-let pending: any[] = [];
 
-function queueRequest(cb: any) {
-  pending.push(cb);
-}
+type PendingRequest = {
+  resolve: (token: string) => void;
+  reject: (error: unknown) => void;
+};
 
-function resolveQueue(newToken: string | null) {
-  pending.forEach((cb) => cb(newToken));
-  pending = [];
-}
+let pendingRequests: PendingRequest[] = [];
+
+
+// =========================================================
+// PROCESS QUEUED REQUESTS
+// =========================================================
+
+const processQueue = (
+  error: unknown,
+  token: string | null
+) => {
+
+  pendingRequests.forEach(
+    ({ resolve, reject }) => {
+
+      if (error || !token) {
+        reject(error);
+      } else {
+        resolve(token);
+      }
+
+    }
+  );
+
+  pendingRequests = [];
+};
+
+
+// =========================================================
+// RESPONSE INTERCEPTOR
+// =========================================================
 
 apiClient.interceptors.response.use(
-  (response) => response,
 
-  async (error) => {
-    const is401 = error.response?.status === 401;
-    const original = error.config;
+  // Successful response
+  (response) => {
+    return response;
+  },
 
-    if (!is401 || original._retry) {
+
+  // Error response
+  async (error: AxiosError) => {
+
+    const originalRequest =
+      error.config as
+        | (InternalAxiosRequestConfig & {
+            _retry?: boolean;
+          })
+        | undefined;
+
+
+    // No config → nothing to retry
+    if (!originalRequest) {
       return Promise.reject(error);
     }
 
-    original._retry = true;
+
+    // Only handle 401
+    if (error.response?.status !== 401) {
+      return Promise.reject(error);
+    }
+
+
+    // Prevent infinite refresh loop
+    if (originalRequest._retry) {
+      return Promise.reject(error);
+    }
+
+
+    // Mark request as retry
+    originalRequest._retry = true;
+
+
+    // =====================================================
+    // ANOTHER REFRESH REQUEST IS ALREADY RUNNING
+    // =====================================================
 
     if (isRefreshing) {
-      return new Promise((resolve, reject) => {
-        queueRequest((newToken: string | null) => {
-          if (!newToken) {
-            reject(error);
-            return;
-          }
 
-          original.headers.Authorization = `Bearer ${newToken}`;
-          resolve(apiClient(original));
-        });
+      return new Promise<string>(
+        (resolve, reject) => {
+
+          pendingRequests.push({
+            resolve,
+            reject,
+          });
+
+        }
+      ).then((newToken) => {
+
+        originalRequest.headers.Authorization =
+          `Bearer ${newToken}`;
+
+        return apiClient(originalRequest);
+
       });
     }
 
+
+    // =====================================================
+    // START TOKEN REFRESH
+    // =====================================================
+
     isRefreshing = true;
 
-    try {
-      const loginResponse = await refreshToken();
 
-      const newToken = loginResponse.accessToken;
+    try {
+
+      /*
+       * Refresh token is stored inside the
+       * HttpOnly cookie.
+       *
+       * axios sends it automatically because:
+       *
+       * withCredentials: true
+       */
+
+      const loginResponse =
+        await refreshToken();
+
+      const newToken =
+        loginResponse.accessToken;
+
 
       if (!newToken) {
-        throw new Error("No Access Token Received");
+        throw new Error(
+          "No access token received from refresh endpoint"
+        );
       }
+
+
+      // ===================================================
+      // UPDATE ZUSTAND AUTH STATE
+      // ===================================================
 
       useAuth
         .getState()
         .changeLocalLoginData(
-          loginResponse.accessToken,
+          newToken,
           loginResponse.users,
           true,
           false
         );
 
-      resolveQueue(newToken);
 
-      original.headers.Authorization = `Bearer ${newToken}`;
+      // ===================================================
+      // RESOLVE WAITING REQUESTS
+      // ===================================================
 
-      return apiClient(original);
-    } catch (error) {
-      resolveQueue(null);
-      useAuth.getState().logout();
+      processQueue(
+        null,
+        newToken
+      );
 
-      return Promise.reject(error);
+
+      // ===================================================
+      // RETRY ORIGINAL REQUEST
+      // ===================================================
+
+      originalRequest.headers.Authorization =
+        `Bearer ${newToken}`;
+
+      return apiClient(
+        originalRequest
+      );
+
+    } catch (refreshError) {
+
+      // ===================================================
+      // REFRESH FAILED
+      // ===================================================
+
+      processQueue(
+        refreshError,
+        null
+      );
+
+
+      /*
+       * Don't call logout() here.
+       *
+       * logout() uses apiClient and can trigger
+       * another 401/refresh cycle.
+       *
+       * Clear local authentication state directly.
+       */
+
+      localStorage.removeItem(
+        "securex"
+      );
+
+      useAuth.setState({
+        accessToken: null,
+        user: null,
+        authState: false,
+        authLoading: false,
+      });
+
+
+      return Promise.reject(
+        refreshError
+      );
+
     } finally {
+
       isRefreshing = false;
+
     }
   }
 );
